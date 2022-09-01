@@ -10,6 +10,7 @@ from pyserini.query_iterator import get_query_iterator, TopicsFormat
 from pyserini.search.lucene import LuceneSearcher
 from pyserini.trectools import TrecRun
 import json
+from tqdm import tqdm
 import os
 from pyserini import search
 from pyserini.analysis import Analyzer, get_lucene_analyzer
@@ -94,7 +95,7 @@ def get_Rocchio_query(orig_query_vector, fb_doc_vector, alpha=0.7, belta=0.3):
             boost = querybuilder.get_boost_query(term, new_query[k])
             boolean_query_builder.add(boost, should)
         except:
-            print(k)
+            #print(k)
             pass
     query_now = boolean_query_builder.build()
     return query_now
@@ -111,7 +112,8 @@ def run_rocchio(topic_name, initial_run, outpath, alpha=0.7, belta=0.3):
     index_reader = IndexReader.from_prebuilt_index(index_name)
     searcher = LuceneSearcher.from_prebuilt_index(index_name)
     searcher.set_bm25(0.9, 0.4)
-    for topic_id in query_iterator.topics:
+    topics = query_iterator.topics
+    for index, (topic_id, text) in enumerate(tqdm(query_iterator, total=len(topics.keys()))):
         topic_text = query_iterator.topics[topic_id]['title']
         query_bow_dict = get_BoW_query(topic_text)
         fb_ids = query_fb_doc[topic_id]
