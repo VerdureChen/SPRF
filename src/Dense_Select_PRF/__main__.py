@@ -29,6 +29,7 @@ from pyserini.query_iterator import get_query_iterator, TopicsFormat
 from pyserini.output_writer import get_output_writer, OutputFormat
 from pyserini.search.lucene import LuceneSearcher
 import numpy as np
+import sys
 # from ._prf import DenseVectorAveragePrf, DenseVectorRocchioPrf
 
 # Fixes this error: "OMP: Error #15: Initializing libomp.a, but found libomp.dylib already initialized."
@@ -92,7 +93,8 @@ def define_dsearch_args(parser):
                         help='The path to sparse index containing the passage contents')
     parser.add_argument('--ance-prf-encoder', type=str, metavar='query encoder path for ANCE-PRF', required=False,
                         help='The path or name to ANCE-PRF model checkpoint')
-
+    parser.add_argument('--log_path', type=str, metavar='log path.', required=False,
+                        help='The path for logs.')
 
 def init_query_encoder(encoder, encoder_class, tokenizer_name, topics_name, encoded_queries, device, prefix):
     encoded_queries_map = {
@@ -157,11 +159,8 @@ def init_query_encoder(encoder, encoder_class, tokenizer_name, topics_name, enco
         return QueryEncoder.load_encoded_queries(encoded_queries_map[topics_name])
     raise ValueError(f'No encoded queries for topic {topics_name}')
 
-# def main():
-
-
-
-if __name__ == '__main__':
+def dsprf_main():
+    # print(sys.argv)
     parser = argparse.ArgumentParser(description='Search a Faiss index.')
     parser.add_argument('--topics', type=str, metavar='topic_name', required=True,
                         help="Name of topics. Available: msmarco-passage-dev-subset.")
@@ -187,7 +186,7 @@ if __name__ == '__main__':
     define_dsearch_args(parser)
     args = parser.parse_args()
 
-    print(args)
+    # print(args)
 
     query_iterator = get_query_iterator(args.topics, TopicsFormat(args.topics_format))
     topics = query_iterator.topics
@@ -249,15 +248,17 @@ if __name__ == '__main__':
                                       max_passage_delimiter=args.max_passage_delimiter,
                                       max_passage_hits=args.max_passage_hits)
 
+
     with output_writer:
         batch_topics = list()
         batch_topic_ids = list()
         for index, (topic_id, text) in enumerate(tqdm(query_iterator, total=len(topics.keys()))):
             if args.batch_size <= 1 and args.threads <= 1:
                 if PRF_FLAG:
-                    emb_q, prf_candidates = searcher.search(text, seed=args.seed, fbn=args.prf_depth, spt=args.split_num,
+                    emb_q, prf_candidates = searcher.search(text, seed=args.seed, fbn=args.prf_depth,
+                                                            spt=args.split_num,
                                                             nspt=args.nsplit, k=args.total_prf_docs, return_vector=True,
-                                                            **kwargs)
+                                                            log_name=args.log_path, **kwargs)
                     # ANCE-PRF input is different, do not need query embeddings
                     if args.prf_method.lower() == 'ance-prf':
                         prf_emb_q = prfRule.get_prf_q_emb(text, prf_candidates)
@@ -277,7 +278,7 @@ if __name__ == '__main__':
                         q_embs, prf_candidates = searcher.batch_search(batch_topics, batch_topic_ids, seed=args.seed,
                                                                        fbn=args.prf_depth, spt=args.split_num,
                                                                        nspt=args.nsplit, k=args.total_prf_docs,
-                                                                       return_vector=True, **kwargs)
+                                                                       return_vector=True, log_name=args.log_path, **kwargs)
                         # ANCE-PRF input is different, do not need query embeddings
                         if args.prf_method.lower() == 'ance-prf':
                             prf_embs_q = prfRule.get_batch_prf_q_emb(batch_topics, batch_topic_ids, prf_candidates)
@@ -299,3 +300,8 @@ if __name__ == '__main__':
                 output_writer.write(topic, hits)
 
             results.clear()
+
+
+
+if __name__ == '__main__':
+    dsprf_main()

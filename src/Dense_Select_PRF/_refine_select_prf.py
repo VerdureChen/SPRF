@@ -14,10 +14,7 @@ import logging
 from pyserini.search import FaissSearcher
 
 
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                    datefmt='%m/%d/%Y %H:%M:%S',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -48,7 +45,7 @@ class FaissSearcherSplitPRF(FaissSearcher):
         return s
 
     def search(self, query: Union[str, np.ndarray], seed: int = 42, fbn: int = 3, spt: int = 10, nspt: int = 0,
-               k: int = 1000, threads: int = 1, return_vector: bool = False) \
+               k: int = 1000, threads: int = 1, return_vector: bool = False, log_name: str = 'dense_position') \
             -> Union[List[DenseSearchResult], Tuple[np.ndarray, List[PRFDenseSearchResult]]]:
         """Search the collection.
 
@@ -100,7 +97,7 @@ class FaissSearcherSplitPRF(FaissSearcher):
                     for score, idx in zip(distances, indexes) if idx != -1]
 
     def batch_search(self, queries: Union[List[str], np.ndarray], q_ids: List[str], seed: int = 42, fbn: int = 3, spt: int = 10, nspt: int = 0,
-                     k: int = 1000, threads: int = 1, return_vector: bool = False) \
+                     k: int = 1000, threads: int = 1, return_vector: bool = False, log_name: str = 'dense_position') \
             -> Union[Dict[str, List[DenseSearchResult]], Tuple[np.ndarray, Dict[str, List[PRFDenseSearchResult]]]]:
         """
 
@@ -130,6 +127,12 @@ class FaissSearcherSplitPRF(FaissSearcher):
             corresponding lists of search results as the values.
             Or returns a tuple with ndarray of query vectors and a dictionary of PRF Dense Search Results with vectors
         """
+        logging.basicConfig(filename=log_name,
+                            filemode='a',
+                            format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                            datefmt='%m/%d/%Y %H:%M:%S',
+                            level=logging.INFO)
+        logger = logging.getLogger(__name__)
         setup_seed(seed)
         assert nspt < spt, "out of split index!"
         if isinstance(queries, np.ndarray):
@@ -141,12 +144,14 @@ class FaissSearcherSplitPRF(FaissSearcher):
         faiss.omp_set_num_threads(threads)
         prf_list = self.get_prf_index(fbn, start=0, end=int(k / spt))
         prf_list = [item + int(k / spt) * nspt for item in prf_list]
-        logger.info("prf_list {}".format(prf_list))
+
         if return_vector:
+            logger.info("prf_list {}".format(prf_list))
             D, I, V = self.index.search_and_reconstruct(q_embs, k)
             D = D[:, prf_list]
             I = I[:, prf_list]
             V = V[:, prf_list]
+            print(seed, I, prf_list)
             # print(len(D), len(V), len(D[0]), len(V[0]), type(D), type(V))
             return q_embs, {key: [PRFDenseSearchResult(self.docids[idx], score, vector)
                                   for score, idx, vector in zip(distances, indexes, vectors) if idx != -1]

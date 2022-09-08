@@ -1,0 +1,11 @@
+
+<wandb.sdk.wandb_run.Run object at 0x7efe29908940>
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'loss' is not defined
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'model' is not defined
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'model' is not defined

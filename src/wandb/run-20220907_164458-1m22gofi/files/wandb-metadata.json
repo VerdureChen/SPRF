@@ -1,0 +1,23 @@
+{
+    "os": "Linux-5.4.0-124-generic-x86_64-with-glibc2.10",
+    "python": "3.8.13",
+    "heartbeatAt": "2022-09-07T08:44:59.351066",
+    "startedAt": "2022-09-07T08:44:58.240033",
+    "docker": null,
+    "gpu": "GeForce RTX 3090",
+    "gpu_count": 8,
+    "cpu_count": 72,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "<python with no main file>",
+    "git": {
+        "remote": "git@github.com:VerdureChen/SPRF.git",
+        "commit": "c35e6ab0a59b4cfccb91beab2b6e746d30a94e4f"
+    },
+    "email": "verdure3@yeah.net",
+    "root": "/home1/cxy/A-SPRF",
+    "host": "CIP-GPUSERVER-42",
+    "username": "cxy",
+    "executable": "/home1/cxy/anaconda3/envs/ANCE-PRF/bin/python"
+}
