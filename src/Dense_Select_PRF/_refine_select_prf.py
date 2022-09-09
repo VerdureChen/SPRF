@@ -127,12 +127,6 @@ class FaissSearcherSplitPRF(FaissSearcher):
             corresponding lists of search results as the values.
             Or returns a tuple with ndarray of query vectors and a dictionary of PRF Dense Search Results with vectors
         """
-        logging.basicConfig(filename=log_name,
-                            filemode='a',
-                            format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                            datefmt='%m/%d/%Y %H:%M:%S',
-                            level=logging.INFO)
-        logger = logging.getLogger(__name__)
         setup_seed(seed)
         assert nspt < spt, "out of split index!"
         if isinstance(queries, np.ndarray):
@@ -146,13 +140,15 @@ class FaissSearcherSplitPRF(FaissSearcher):
         prf_list = [item + int(k / spt) * nspt for item in prf_list]
 
         if return_vector:
-            logger.info("prf_list {}".format(prf_list))
             D, I, V = self.index.search_and_reconstruct(q_embs, k)
             D = D[:, prf_list]
             I = I[:, prf_list]
             V = V[:, prf_list]
-            print(seed, I, prf_list)
-            # print(len(D), len(V), len(D[0]), len(V[0]), type(D), type(V))
+            with open(log_name, 'a', encoding='utf-8') as lg:
+                lg.write(f"seed:{seed}\n"
+                         f"Qids:{q_ids}\n"
+                         f"Indexes:{I}\n"
+                         f"prf_list:{prf_list}\n")
             return q_embs, {key: [PRFDenseSearchResult(self.docids[idx], score, vector)
                                   for score, idx, vector in zip(distances, indexes, vectors) if idx != -1]
                             for key, distances, indexes, vectors in zip(q_ids, D, I, V)}

@@ -17,7 +17,7 @@ from Dense_Select_PRF.__main__ import dsprf_main
 
 # assert Path(".git").exists()
 os.environ["PL_DISABLE_FORK"] = "1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3,4,5,6,7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6,7"
 def run_cli(config, index, encoder, threads, sparse_index,
             ance_prf_encoder, prf_method, devices: int = 1):
     os.chdir(os.environ["TUNE_ORIG_WORKING_DIR"])
@@ -49,7 +49,11 @@ def run_cli(config, index, encoder, threads, sparse_index,
         )
     )
     print(shlex.join(sys.argv))
-    dsprf_main()
+    # dsprf_main()
+
+    topics = config['topics']
+    if config['topics'] == "dl20":
+        topics = "dl20-passage"
 
     sys.argv = list(
         itertools.chain(
@@ -59,7 +63,7 @@ def run_cli(config, index, encoder, threads, sparse_index,
             ["-m", "ndcg_cut.10"],
             ["-m", "recall.1000"],
             ["-l", f"2"],
-            ["dl19-passage"],
+            [topics],
             [output_name],
 
         )
@@ -79,16 +83,11 @@ def run_cli(config, index, encoder, threads, sparse_index,
     metrics = output
     wandb.log(metrics)
     wandb.finish()
-    logging.basicConfig(filename=log_name,
-                        filemode='a',
-                        format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    logger.info('##########{results}###########\n')
-    for metric in sorted(metrics):
-        logger.info('{}: {}\n'.format(metric, metrics[metric]))
-    logger.info('##############################\n')
+    with open(log_name, 'a', encoding='utf-8') as lg:
+        lg.write('##########{results}###########\n')
+        for metric in sorted(metrics):
+            lg.write('{}: {}\n'.format(metric, metrics[metric]))
+        lg.write('##############################\n')
 
 
 def sweep_dense_position(
@@ -110,12 +109,13 @@ def sweep_dense_position(
 
     if topics is None:
         # topics = ["dl19-passage"]
-        topics = ["dl19-passage", "dl20"]
+        topics = ["dl20"]
+        # topics = ["dl19-passage", "dl20"]
     if prf_depth is None:
         prf_depth = [3]
     if total_prf_docs is None:
-        total_prf_docs = [100]
-        # total_prf_docs = [100, 1000]
+        # total_prf_docs = [100]
+        total_prf_docs = [100, 1000]
     if nsplit is None:
         # nsplit = [1]
         nsplit = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
