@@ -95,6 +95,8 @@ def define_dsearch_args(parser):
                         help='The path or name to ANCE-PRF model checkpoint')
     parser.add_argument('--log_path', type=str, metavar='log path.', required=False,
                         help='The path for logs.')
+    parser.add_argument('--rand_prf', action='store_true',
+                        default=False, help="total_random prf docs.")
 
 def init_query_encoder(encoder, encoder_class, tokenizer_name, topics_name, encoded_queries, device, prefix):
     encoded_queries_map = {
@@ -278,7 +280,8 @@ def dsprf_main():
                         q_embs, prf_candidates = searcher.batch_search(batch_topics, batch_topic_ids, seed=args.seed,
                                                                        fbn=args.prf_depth, spt=args.split_num,
                                                                        nspt=args.nsplit, k=args.total_prf_docs,
-                                                                       return_vector=True, log_name=args.log_path, **kwargs)
+                                                                       return_vector=True, log_name=args.log_path,
+                                                                       rand_prf=args.rand_prf, **kwargs)
                         # ANCE-PRF input is different, do not need query embeddings
                         if args.prf_method.lower() == 'ance-prf':
                             prf_embs_q = prfRule.get_batch_prf_q_emb(batch_topics, batch_topic_ids, prf_candidates)

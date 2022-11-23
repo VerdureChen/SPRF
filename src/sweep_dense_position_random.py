@@ -19,12 +19,12 @@ from Dense_Select_PRF.__main__ import dsprf_main
 os.environ["PL_DISABLE_FORK"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6,7"
 def run_cli(config, index, encoder, threads, sparse_index,
-            ance_prf_encoder, prf_method, devices: int = 1):
+            ance_prf_encoder, prf_method, devices: int = 1, rand_prf: bool = False):
     os.chdir(os.environ["TUNE_ORIG_WORKING_DIR"])
 
-    output_name = f"{Path.cwd().parents[0]}/output/dense_position_{prf_method}/{config['topics']}" \
+    output_name = f"{Path.cwd().parents[0]}/output/dense_position_{prf_method}_randprf/{config['topics']}" \
                   f"/run.{config['total_prf_docs']}.{config['split_num']}.{config['prf_depth']}.{config['nsplit']}.{config['seed']}.trec"
-    log_name = f"{Path.cwd().parents[0]}/logs/dense_position_{prf_method}/{config['topics']}" \
+    log_name = f"{Path.cwd().parents[0]}/logs/dense_position_{prf_method}_randprf/{config['topics']}" \
                   f"/run.{config['total_prf_docs']}.{config['split_num']}.{config['prf_depth']}.{config['nsplit']}.{config['seed']}.log"
     Path(log_name).parents[0].mkdir(parents=True, exist_ok=True)
     sys.argv = list(
@@ -45,11 +45,12 @@ def run_cli(config, index, encoder, threads, sparse_index,
             ["--ance-prf-encoder", f"{ance_prf_encoder}"],
             ["--device", f"cuda:0"],
             ["--seed", f"{config['seed']}"],
-            ["--log_path", f"{log_name}"]
+            ["--log_path", f"{log_name}"],
+            ["--rand_prf"]
         )
     )
     print(shlex.join(sys.argv))
-    # dsprf_main()
+    dsprf_main()
 
     topics = config['topics']
     if config['topics'] == "dl20":
@@ -75,7 +76,7 @@ def run_cli(config, index, encoder, threads, sparse_index,
 
     import wandb
     wandb.init(
-        project=f"compare_position_prf_{config['topics']}_{config['total_prf_docs']}",
+        project=f"random_dense_position_prf_{config['topics']}_{config['total_prf_docs']}",
         name=f"wandb/{Path(output_name).name}",
         dir="/home1/cxy/A-SPRF/logs/dense_position/wandb",
         config=config,
@@ -96,7 +97,7 @@ def sweep_dense_position(
         prf_method: Literal["ance-prf"] = "ance-prf",
         sparse_index: Literal["msmarco-passage"] = "msmarco-passage",
         ance_prf_encoder: str = "/home1/cxy/.cache/pyserini/ckpt/k3_checkpoint",
-        output_dir: str = "/home1/cxy/A-SPRF/split_prf/ance_prf/",
+        rand_prf: bool = True,
         gpus_per_trial: Union[int, float] = 1,
         seed=None,
         split_num=None,
@@ -108,14 +109,14 @@ def sweep_dense_position(
 ):
 
     if topics is None:
-        topics = ["dl19-passage"]
-        # topics = ["dl20"]
+        # topics = ["dl19-passage"]
+        topics = ["dl20"]
         # topics = ["dl19-passage", "dl20"]
     if prf_depth is None:
         prf_depth = [3]
     if total_prf_docs is None:
-        total_prf_docs = [100]
-        # total_prf_docs = [100, 1000]
+        # total_prf_docs = [1000]
+        total_prf_docs = [100, 1000]
     if nsplit is None:
         # nsplit = [1]
         nsplit = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -153,6 +154,7 @@ def sweep_dense_position(
         ance_prf_encoder=ance_prf_encoder,
         prf_method=prf_method,
         devices=math.ceil(gpus_per_trial),
+        rand_prf=rand_prf,
     )
     tuner = tune.Tuner(
         tune.with_resources(trainable, resources={"gpu": gpus_per_trial}),

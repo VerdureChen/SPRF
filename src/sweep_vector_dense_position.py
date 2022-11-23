@@ -18,8 +18,8 @@ from Dense_Select_PRF.__main__ import dsprf_main
 # assert Path(".git").exists()
 os.environ["PL_DISABLE_FORK"] = "1"
 os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6,7"
-def run_cli(config, index, encoder, threads, sparse_index,
-            ance_prf_encoder, prf_method, devices: int = 1):
+def run_cli(config, index, encoder, threads,
+            prf_method, devices: int = 1):
     os.chdir(os.environ["TUNE_ORIG_WORKING_DIR"])
 
     output_name = f"{Path.cwd().parents[0]}/output/dense_position_{prf_method}/{config['topics']}" \
@@ -41,15 +41,16 @@ def run_cli(config, index, encoder, threads, sparse_index,
             ["--prf-depth", f"{config['prf_depth']}"],
             ["--prf-method", f"{prf_method}"],
             ["--threads", f"{threads}"],
-            ["--sparse-index", f"{sparse_index}"],
-            ["--ance-prf-encoder", f"{ance_prf_encoder}"],
             ["--device", f"cuda:0"],
             ["--seed", f"{config['seed']}"],
-            ["--log_path", f"{log_name}"]
+            ["--log_path", f"{log_name}"],
+            ["--rocchio-topk", f"{config['prf_depth']}"],
+            ["--rocchio-alpha", f"{config['rocchio_alpha']}"],
+            ["--rocchio-beta", f"{config['rocchio_beta']}"],
         )
     )
     print(shlex.join(sys.argv))
-    # dsprf_main()
+    dsprf_main()
 
     topics = config['topics']
     if config['topics'] == "dl20":
@@ -75,7 +76,7 @@ def run_cli(config, index, encoder, threads, sparse_index,
 
     import wandb
     wandb.init(
-        project=f"compare_position_prf_{config['topics']}_{config['total_prf_docs']}",
+        project=f"vector_position_prf_{config['topics']}_{config['total_prf_docs']}",
         name=f"wandb/{Path(output_name).name}",
         dir="/home1/cxy/A-SPRF/logs/dense_position/wandb",
         config=config,
@@ -93,11 +94,11 @@ def run_cli(config, index, encoder, threads, sparse_index,
 def sweep_dense_position(
         index: Literal["msmarco-passage-ance-bf"] = "msmarco-passage-ance-bf",
         encoder: Literal["castorini/ance-msmarco-passage"] = "castorini/ance-msmarco-passage",
-        prf_method: Literal["ance-prf"] = "ance-prf",
+        prf_method: Literal["ance-prf", "rocchio"] = "rocchio",
         sparse_index: Literal["msmarco-passage"] = "msmarco-passage",
         ance_prf_encoder: str = "/home1/cxy/.cache/pyserini/ckpt/k3_checkpoint",
         output_dir: str = "/home1/cxy/A-SPRF/split_prf/ance_prf/",
-        gpus_per_trial: Union[int, float] = 1,
+        gpus_per_trial: Union[int, float] = 0.5,
         seed=None,
         split_num=None,
         nsplit=None,
@@ -105,6 +106,8 @@ def sweep_dense_position(
         prf_depth=None,
         topics=None,
         batch_size=None,
+        rocchio_alpha=None,
+        rocchio_beta=None,
 ):
 
     if topics is None:
@@ -114,7 +117,7 @@ def sweep_dense_position(
     if prf_depth is None:
         prf_depth = [3]
     if total_prf_docs is None:
-        total_prf_docs = [100]
+        total_prf_docs = [1000]
         # total_prf_docs = [100, 1000]
     if nsplit is None:
         # nsplit = [1]
@@ -125,7 +128,11 @@ def sweep_dense_position(
         # seed = [42]
         seed = [42, 51, 10, 23, 34, 65, 78, 86, 97, 9]
     if batch_size is None:
-        batch_size = [32]
+        batch_size = [64]
+    if rocchio_alpha is None:
+        rocchio_alpha = [0.4]
+    if rocchio_beta is None:
+        rocchio_beta = [0.6]
 
     param_space = {
         "seed": tune.grid_search(seed),
@@ -134,13 +141,15 @@ def sweep_dense_position(
         "total_prf_docs": tune.grid_search(total_prf_docs),
         "prf_depth": tune.grid_search(prf_depth),
         "topics": tune.grid_search(topics),
-        "batch_size": tune.grid_search(batch_size)
+        "batch_size": tune.grid_search(batch_size),
+        "rocchio_alpha": tune.grid_search(rocchio_alpha),
+        "rocchio_beta": tune.grid_search(rocchio_beta),
     }
 
     tune_config = tune.TuneConfig()
     run_config = air.RunConfig(
         name="dense_position",
-        local_dir="../logs/tune/dense_position/ance_prf",
+        local_dir="../logs/tune/dense_position/rocchio",
         log_to_file=True,
         verbose=1,
     )
@@ -149,8 +158,6 @@ def sweep_dense_position(
         index=index,
         encoder=encoder,
         threads=12,
-        sparse_index=sparse_index,
-        ance_prf_encoder=ance_prf_encoder,
         prf_method=prf_method,
         devices=math.ceil(gpus_per_trial),
     )

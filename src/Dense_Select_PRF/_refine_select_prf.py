@@ -97,7 +97,7 @@ class FaissSearcherSplitPRF(FaissSearcher):
                     for score, idx in zip(distances, indexes) if idx != -1]
 
     def batch_search(self, queries: Union[List[str], np.ndarray], q_ids: List[str], seed: int = 42, fbn: int = 3, spt: int = 10, nspt: int = 0,
-                     k: int = 1000, threads: int = 1, return_vector: bool = False, log_name: str = 'dense_position') \
+                     k: int = 1000, threads: int = 1, return_vector: bool = False, log_name: str = 'dense_position', rand_prf: bool = False) \
             -> Union[Dict[str, List[DenseSearchResult]], Tuple[np.ndarray, Dict[str, List[PRFDenseSearchResult]]]]:
         """
 
@@ -140,15 +140,19 @@ class FaissSearcherSplitPRF(FaissSearcher):
         prf_list = [item + int(k / spt) * nspt for item in prf_list]
 
         if return_vector:
-            D, I, V = self.index.search_and_reconstruct(q_embs, k)
-            D = D[:, prf_list]
-            I = I[:, prf_list]
-            V = V[:, prf_list]
+            D_o, I_o, V_o = self.index.search_and_reconstruct(q_embs, k)
+            if rand_prf:
+                D,I,V = self.get_random_fb(D_o, I_o, V_o, prf_list)
+            else:
+                D = D_o[:, prf_list]
+                I = I_o[:, prf_list]
+                V = V_o[:, prf_list]
             with open(log_name, 'a', encoding='utf-8') as lg:
                 lg.write(f"seed:{seed}\n"
                          f"Qids:{q_ids}\n"
                          f"Indexes:{I}\n"
-                         f"prf_list:{prf_list}\n")
+                         f"prf_list:{prf_list}\n"
+                         f"rand_prf:{rand_prf}\n")
             return q_embs, {key: [PRFDenseSearchResult(self.docids[idx], score, vector)
                                   for score, idx, vector in zip(distances, indexes, vectors) if idx != -1]
                             for key, distances, indexes, vectors in zip(q_ids, D, I, V)}
@@ -158,5 +162,25 @@ class FaissSearcherSplitPRF(FaissSearcher):
                           for score, idx in zip(distances, indexes) if idx != -1]
                     for key, distances, indexes in zip(q_ids, D, I)}
 
+
+    def get_random_fb(self, D_o, I_o, V_o, prf_list):
+        permutation = np.random.permutation(D_o.shape[0])
+
+        D = D_o[:, prf_list]
+        I = I_o[:, prf_list]
+        V = V_o[:, prf_list]
+
+        D_pm = D[permutation]
+        I_pm = I[permutation]
+        V_pm = V[permutation]
+        flag = 0
+        for line1, line2 in zip(I_o, I_pm):
+            if [i for i in line1 if i in line2]:
+                flag = 1
+                break
+        if flag == 1:
+            D_pm, I_pm, V_pm = self.get_random_fb(D_o, I_o, V_o, prf_list)
+
+        return D_pm, I_pm, V_pm
 
 
